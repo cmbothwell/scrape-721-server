@@ -53,7 +53,6 @@ async def root() -> str:
 
 @app.post("/login")
 async def login(
-    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
@@ -69,7 +68,6 @@ async def login(
         )
 
     access_token = auth.create_access_token(data={"sub": str(user.email)})
-    response.set_cookie(key="research-auth", value=access_token)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
