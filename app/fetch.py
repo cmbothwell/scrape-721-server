@@ -1,10 +1,10 @@
 import os
+import sys
 import time
 import requests
 import csv
 
 from typing import Any
-from enum import Enum
 from dotenv import load_dotenv
 from web3 import Web3
 from tqdm import tqdm
@@ -15,58 +15,6 @@ DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 CACHE: dict[str, str] = {}
 
 w3 = Web3(Web3.HTTPProvider(os.environ["RPC_URL"]))
-
-
-class Contract(Enum):
-    HASHMASKS = (
-        "HASHMASKS",
-        "0xC2C747E0F7004F9E8817Db2ca4997657a7746928",
-    )
-    BAYC = (
-        "BAYC",
-        "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
-    )
-    MAYC = (
-        "MAYC",
-        "0x60E4d786628Fea6478F785A6d7e704777c86a7c6",
-    )
-    COOLCATS = (
-        "COOLCATS",
-        "0x1A92f7381B9F03921564a437210bB9396471050C",
-    )
-    MEEBITS = (
-        "MEEBITS",
-        "0x7Bd29408f11D2bFC23c34f18275bBf23bB716Bc7",
-    )
-    CYBERKONGZ = (
-        "CYBERKONGZ",
-        "0x57a204AA1042f6E66DD7730813f4024114d74f37",
-    )
-    SVS = (
-        "SVS",
-        "0x219B8aB790dECC32444a6600971c7C3718252539",
-    )
-    MEKAVERSE = (
-        "MEKAVERSE",
-        "0x9A534628B4062E123cE7Ee2222ec20B86e16Ca8F",
-    )
-
-    def __new__(cls, *args, **kwds):
-        obj = object.__new__(cls)
-        obj._value_ = args[0]
-        return obj
-
-    # ignore the first param since it's already set by __new__
-    def __init__(self, _: str, address: str | None = None):
-        self._address_ = address
-
-    def __str__(self):
-        return self.value
-
-    # this makes sure that the description is read-only
-    @property
-    def address(self):
-        return self._address_
 
 
 def fetch(job_hash: str, contract_address: str) -> None:
@@ -197,4 +145,10 @@ def write_file(job_hash: str, transactions: list[Any]):
 
 
 if __name__ == "__main__":
-    fetch("TEST", Contract.MEKAVERSE.address)
+    if len(sys.argv) == 3:
+        try:
+            fetch(sys.argv[2], sys.argv[1])
+        except:
+            print(
+                'Script failed. Please check your env vars and your command line arguments. Does the output directory "completed_jobs" exist?'
+            )
