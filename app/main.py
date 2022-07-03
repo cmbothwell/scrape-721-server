@@ -1,12 +1,11 @@
 import os
 from typing import Any, Literal
-from urllib import response
 
-from fastapi import FastAPI, HTTPException, Depends, status, Response
+from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from redis import Redis
+from redis import Redis  # type: ignore
 from rq import Queue
 
 from database import SessionLocal, Base, engine

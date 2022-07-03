@@ -5,6 +5,8 @@ from models import Status
 
 class JobBase(BaseModel):
     contract_address: str
+    from_block: int
+    to_block: int
     name: str
 
 

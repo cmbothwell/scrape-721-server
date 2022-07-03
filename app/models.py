@@ -40,6 +40,8 @@ class Job(Base):  # type: ignore
 
     id = Column(Integer, primary_key=True, index=True)
     contract_address = Column(String, index=True)
+    from_block = Column(Integer)
+    to_block = Column(Integer)
     name = Column(String, index=True)
     creation_date = Column(DateTime(timezone=True), server_default=func.now())
     status = Column(DBEnum(Status))

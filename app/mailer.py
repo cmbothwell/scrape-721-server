@@ -6,8 +6,10 @@ import models
 
 load_dotenv()
 
-sg = sendgrid.SendGridAPIClient(api_key=os.environ.get("SENDGRID_API_KEY"))
 FROM_ADDRESS = "research@thresholdholdings.com"
+
+sg = sendgrid.SendGridAPIClient(api_key=os.environ.get("SENDGRID_API_KEY"))
+debug = os.environ.get("DEBUG")
 
 
 def notify(recipient: str, job: models.Job) -> str:
@@ -27,5 +29,9 @@ def notify(recipient: str, job: models.Job) -> str:
         ],
     }
 
-    response = sg.client.mail.send.post(request_body=data)
-    return response.status_code
+    if not debug:
+        response = sg.client.mail.send.post(request_body=data)
+        return response.status_code
+    else:
+        print(data)
+        return "200"

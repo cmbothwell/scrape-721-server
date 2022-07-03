@@ -57,6 +57,8 @@ def get_jobs(
 def create_job(db: Session, job: schemas.JobCreate, user: models.User) -> models.Job:
     db_job = models.Job(
         contract_address=job.contract_address,
+        from_block=job.from_block,
+        to_block=job.to_block,
         name=job.name,
         status=models.Status.PENDING,
         owner=user,
@@ -90,19 +92,16 @@ def notify_job(job_id: int) -> None:
 def start_fetch(db: Session, q: Queue, job: models.Job):
     process = q.enqueue(
         fetch.fetch,
-        job_timeout="2h",
-        args=(
-            str(job.id),
-            job.contract_address,
-        ),
+        job_timeout="10h",
+        args=("rq_job", job.contract_address, job.from_block, job.to_block),
     )
     update = q.enqueue(
         update_job,
-        job_timeout="2h",
+        job_timeout="10h",
         args=(job.id, models.Status.SUCCESS),
         depends_on=process,
     )
-    q.enqueue(notify_job, job_timeout="2h", args=(job.id,), depends_on=update)
+    q.enqueue(notify_job, job_timeout="10h", args=(job.id,), depends_on=update)
 
     job.status = models.Status.RUNNING  # type: ignore
     db.add(job)
