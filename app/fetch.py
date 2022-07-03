@@ -13,7 +13,7 @@ from constants import ERC_165_ABI, ERC_721_ABI, ERC_721_INTERFACE_ID
 load_dotenv()
 
 w3 = Web3(Web3.HTTPProvider(os.environ["RPC_URL"]))
-DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+DIR_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 # block_cache: dict[str, Any] = {}
 # balance_cache: dict[str, str] = {}
