@@ -1,11 +1,14 @@
+import hashlib
+
 from typing import Literal, Optional
 from sqlalchemy.orm import Session
 from rq import Queue
 
-from database import SessionLocal
-from auth import get_password_hash, verify_password
 import models, schemas, fetch
 import mailer
+
+from database import SessionLocal
+from auth import get_password_hash, verify_password
 
 
 def authenticate_user(
@@ -93,7 +96,7 @@ def start_fetch(db: Session, q: Queue, job: models.Job):
     process = q.enqueue(
         fetch.fetch,
         job_timeout="10h",
-        args=("rq_job", job.contract_address, job.from_block, job.to_block),
+        args=(job.get_hash(), job.contract_address, job.from_block, job.to_block),
     )
     update = q.enqueue(
         update_job,

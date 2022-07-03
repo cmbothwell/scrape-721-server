@@ -8,12 +8,15 @@ from sqlalchemy.orm import Session
 from redis import Redis  # type: ignore
 from rq import Queue
 
+from globals import r
 from database import SessionLocal, Base, engine
+
 import auth, models, schemas, service
 
 
 app: FastAPI = FastAPI()
-q: Queue = Queue(connection=Redis())
+# r: Redis = Redis(host="localhost", port=6379, db=0)
+q: Queue = Queue(connection=r)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 Base.metadata.create_all(bind=engine)  # type: ignore
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))

@@ -1,16 +1,90 @@
 import os
 import csv
-from typing import Any
+import json
 
+from typing import Any
 from tqdm import tqdm
 from dotenv import load_dotenv
 from web3 import Web3
+
+from globals import r
 from constants import ERC_165_ABI, ERC_721_ABI, ERC_721_INTERFACE_ID
 
 load_dotenv()
 
 w3 = Web3(Web3.HTTPProvider(os.environ["RPC_URL"]))
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+
+# block_cache: dict[str, Any] = {}
+# balance_cache: dict[str, str] = {}
+
+
+def get_block_and_transaction_data(record):
+    block_number = record["block_number"]
+    transaction_index = record["transaction_index"]
+
+    if r.exists(block_number):
+        block = json.loads(r.get(block_number).decode("utf-8"))
+        transaction = block["transactions"][transaction_index]
+    else:
+        base_block = w3.eth.get_block(block_number, full_transactions=True)
+
+        block = {
+            "block_timestamp": base_block.timestamp,
+            "gas_used": base_block.gasUsed,
+            "transactions": list(
+                map(
+                    lambda tx: {
+                        "gas": tx.gas,
+                        "gas_price": tx.gasPrice,
+                        "nonce": tx.nonce,
+                    },
+                    base_block.transactions,
+                )
+            ),
+        }
+        transaction = block["transactions"][transaction_index]
+        r.set(block_number, json.dumps(block))
+
+    return record | {
+        "block_timestamp": block["block_timestamp"],
+        "gas_used": block["gas_used"],
+        "gas": transaction["gas"],
+        "gas_price": transaction["gas_price"],
+        "nonce": transaction["nonce"],
+    }
+
+
+def get_balance_data(record):
+    block_number = record["block_number"]
+    from_address = record["from"]
+    to_address = record["to"]
+
+    from_balance_key = f"{from_address}{block_number}"
+    to_balance_key = f"{to_address}{block_number}"
+
+    if r.exists(from_balance_key):
+        print("CACHE HIT ON FROM BALANCE")
+        from_balance = r.get(from_balance_key)
+    else:
+        from_balance = float(
+            w3.fromWei(w3.eth.get_balance(from_address, block_number), "ether")
+        )
+        r.set(from_balance_key, from_balance)
+
+    if r.exists(to_balance_key):
+        print("CACHE HIT ON TO BALANCE")
+        to_balance = r.get(to_balance_key)
+    else:
+        to_balance = float(
+            w3.fromWei(w3.eth.get_balance(to_address, block_number), "ether")
+        )
+        r.set(to_balance_key, to_balance)
+
+    return record | {
+        "from_balance": from_balance,
+        "to_balance": to_balance,
+    }
 
 
 def get_record_from_log(log, token_name, token_symbol):
@@ -30,79 +104,6 @@ def get_record_from_log(log, token_name, token_symbol):
     }
 
     return get_balance_data(get_block_and_transaction_data(record))
-
-
-block_cache: dict[str, Any] = {}
-balance_cache: dict[str, str] = {}
-
-
-def get_block_and_transaction_data(record):
-    block_number = record["block_number"]
-    transaction_index = record["transaction_index"]
-
-    if block_number in block_cache:
-        block = block_cache[block_number]
-        transaction = block.transactions[transaction_index]
-    else:
-        block = w3.eth.get_block(block_number, full_transactions=True)
-        transaction = block.transactions[transaction_index]
-
-        block_cache[block_number] = block
-
-    return record | {
-        "block_timestamp": block["timestamp"],
-        "gas_used": block["gasUsed"],
-        "gas": transaction["gas"],
-        "gas_price": transaction["gasPrice"],
-        "nonce": transaction["nonce"],
-    }
-
-
-def get_balance_data(record):
-    block = record["block_number"]
-    from_address = record["from"]
-    to_address = record["to"]
-
-    from_balance_key = f"{from_address}{block}"
-    to_balance_key = f"{to_address}{block}"
-
-    if from_balance_key in balance_cache:
-        print("CACHE HIT ON FROM")
-        from_balance = balance_cache[from_balance_key]
-    else:
-        from_balance = w3.fromWei(w3.eth.get_balance(from_address, block), "ether")
-        balance_cache[from_balance_key] = from_balance
-
-    if to_balance_key in balance_cache:
-        print("CACHE HIT ON TO")
-        to_balance = balance_cache[to_balance_key]
-    else:
-        to_balance = w3.fromWei(w3.eth.get_balance(to_address, block), "ether")
-        balance_cache[to_balance_key] = to_balance
-
-    return record | {
-        "from_balance": from_balance,
-        "to_balance": to_balance,
-    }
-
-
-def supports_erc_721(address):
-    contract_erc_165 = w3.eth.contract(address=address, abi=ERC_165_ABI)
-
-    try:
-        return contract_erc_165.functions.supportsInterface(ERC_721_INTERFACE_ID).call()
-    except:
-        return False
-
-
-def fetch(job_hash, contract_address, from_block, to_block):
-    address = w3.toChecksumAddress(contract_address)
-    supports_721 = supports_erc_721(address)
-
-    if supports_721:
-        contract_erc_721 = w3.eth.contract(address=address, abi=ERC_721_ABI)
-        write_header(job_hash)
-        write_records(job_hash, contract_erc_721, from_block, to_block)
 
 
 def write_header(job_hash):
@@ -180,3 +181,22 @@ def write_records(job_hash, contract, from_block, to_block):
                     write_row(writer, record)
 
         current_block += 2000
+
+
+def supports_erc_721(address):
+    contract_erc_165 = w3.eth.contract(address=address, abi=ERC_165_ABI)
+
+    try:
+        return contract_erc_165.functions.supportsInterface(ERC_721_INTERFACE_ID).call()
+    except:
+        return False
+
+
+def fetch(job_hash, contract_address, from_block, to_block):
+    address = w3.toChecksumAddress(contract_address)
+    supports_721 = supports_erc_721(address)
+
+    if supports_721:
+        contract_erc_721 = w3.eth.contract(address=address, abi=ERC_721_ABI)
+        write_header(job_hash)
+        write_records(job_hash, contract_erc_721, from_block, to_block)

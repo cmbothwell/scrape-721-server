@@ -1,6 +1,7 @@
+import hashlib
+
 from typing import Any
 from enum import Enum
-import base64
 
 from sqlalchemy import (
     Boolean,
@@ -49,5 +50,8 @@ class Job(Base):  # type: ignore
 
     owner: Any = relationship("User", back_populates="jobs")
 
+    def get_hash(self):
+        return hashlib.md5(str(self.id).encode()).hexdigest()
+
     def get_url(self):
-        return f"localhost:8000/jobs/{self.id}/download"
+        return f"localhost:8000/jobs/{self.get_hash()}/download"
